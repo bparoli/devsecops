@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: arithmetic-api
+  labels:
+    app: arithmetic-api
+spec:
+  type: LoadBalancer
+  selector:
+    app: arithmetic-api
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 8080
+    name: http
