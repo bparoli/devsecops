@@ -16,6 +16,7 @@ import (
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	slog.SetDefault(logger)
 
 	port := os.Getenv("PORT")
 	if port == "" {

@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: diagnostic-agent
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: diagnostic-agent
+  template:
+    metadata:
+      labels:
+        app: diagnostic-agent
+    spec:
+      containers:
+        - name: agent
+          image: diagnostic-agent:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: LOKI_URL
+              value: "http://loki.monitoring:3100"
+            - name: TELEGRAM_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: agent-secrets
+                  key: TELEGRAM_TOKEN
+            - name: TELEGRAM_CHAT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: agent-secrets
+                  key: TELEGRAM_CHAT_ID
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: agent-secrets
+                  key: ANTHROPIC_API_KEY
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi

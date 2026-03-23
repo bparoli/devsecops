@@ -32,6 +32,8 @@ spec:
             - name: dashboards-config
               mountPath: /var/lib/grafana/dashboards/arithmetic-api.json
               subPath: arithmetic-api.json
+            - name: alerts
+              mountPath: /etc/grafana/provisioning/alerting
           resources:
             requests:
               cpu: 100m
@@ -46,3 +48,6 @@ spec:
         - name: dashboards-config
           configMap:
             name: grafana-dashboards-config
+        - name: alerts
+          configMap:
+            name: grafana-alerts

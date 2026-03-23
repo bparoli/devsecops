@@ -24,7 +24,7 @@ data:
               job: kubernetes-pods
               __path__: /var/log/pods/**/*.log
         pipeline_stages:
-          - cri: {}
+          - docker: {}
           - json:
               expressions:
                 level: level
