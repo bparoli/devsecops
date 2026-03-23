@@ -9,11 +9,11 @@ This project demonstrates a cloud-native Go application with production-grade ob
 ```mermaid
 flowchart TD
     subgraph cluster["Kubernetes Cluster"]
-        subgraph default["namespace: default"]
+        subgraph ns_default["namespace: default"]
             APP["arithmetic-api\n(Go HTTP service)"]
         end
 
-        subgraph monitoring["namespace: monitoring"]
+        subgraph ns_monitoring["namespace: monitoring"]
             PROM["Prometheus\n(metrics scraper)"]
             LOKI["Loki\n(log aggregation)"]
             GRAFANA["Grafana\n(dashboards + alerts)"]
