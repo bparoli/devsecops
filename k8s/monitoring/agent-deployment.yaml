@@ -16,7 +16,7 @@ spec:
       containers:
         - name: agent
           image: diagnostic-agent:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Never
           env:
             - name: LOKI_URL
               value: "http://loki.monitoring:3100"
@@ -35,6 +35,30 @@ spec:
                 secretKeyRef:
                   name: agent-secrets
                   key: ANTHROPIC_API_KEY
+            - name: JIRA_URL
+              valueFrom:
+                secretKeyRef:
+                  name: agent-secrets
+                  key: JIRA_URL
+                  optional: true
+            - name: JIRA_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: agent-secrets
+                  key: JIRA_EMAIL
+                  optional: true
+            - name: JIRA_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: agent-secrets
+                  key: JIRA_API_TOKEN
+                  optional: true
+            - name: JIRA_PROJECT_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: agent-secrets
+                  key: JIRA_PROJECT_KEY
+                  optional: true
           resources:
             requests:
               cpu: 50m

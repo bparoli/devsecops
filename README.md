@@ -32,6 +32,7 @@ flowchart TD
     AGENT -- "poll errors\n(LogQL)" --> LOKI
     AGENT -- "diagnose\n(Claude Opus 4.6)" --> CLAUDE["Anthropic API\n(Claude Opus 4.6)"]
     AGENT -- "send diagnosis" --> TELEGRAM["Telegram Bot"]
+    AGENT -- "search / create issue" --> JIRA["Jira"]
 ```
 
 ### Features
@@ -44,7 +45,7 @@ flowchart TD
 - Promtail DaemonSet ships pod logs to Loki automatically
 - Grafana dashboards pre-configured (no manual setup)
 - Grafana alert fires when the pod restarts
-- AI diagnostic agent: polls Loki for errors, diagnoses with Claude Opus 4.6 (adaptive thinking), notifies via Telegram
+- AI diagnostic agent: polls Loki for errors, diagnoses with Claude Opus 4.6 (adaptive thinking), notifies via Telegram and creates Jira issues automatically
 
 ---
 
@@ -167,8 +168,19 @@ Required secrets:
 | `TELEGRAM_TOKEN` | Create a bot via [@BotFather](https://t.me/BotFather) |
 | `TELEGRAM_CHAT_ID` | Send a message to your bot, then call `GET https://api.telegram.org/bot<TOKEN>/getUpdates` |
 | `ANTHROPIC_API_KEY` | [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) |
+| `JIRA_URL` | Your Jira base URL, e.g. `https://yourorg.atlassian.net` |
+| `JIRA_EMAIL` | Your Atlassian account email |
+| `JIRA_API_TOKEN` | [id.atlassian.com/manage-profile/security/api-tokens](https://id.atlassian.com/manage-profile/security/api-tokens) |
+| `JIRA_PROJECT_KEY` | Project key where issues will be created (e.g. `OPS`) |
 
-The agent polls Loki every 30 seconds. When ERROR logs are detected, it calls Claude Opus 4.6 with adaptive thinking to produce a diagnosis and sends it to your Telegram chat. A 2-minute cooldown prevents duplicate alerts.
+The Jira keys are optional — if omitted, the agent still works (Telegram only).
+
+The agent polls Loki every 30 seconds. When ERROR logs are detected:
+1. Claude Opus 4.6 diagnoses the failure (adaptive thinking)
+2. The agent extracts a short title from the error log (e.g. `division by zero`) and searches Jira for any open Incident with that title — if one exists, it links it in the alert; otherwise it creates a new Incident
+3. The diagnosis + Jira link is sent to your Telegram chat
+
+A 2-minute cooldown prevents duplicate alerts for the same incident.
 
 ---
 
@@ -236,9 +248,10 @@ go test ./...
 │   └── arithmetic.go               # Business logic
 ├── agent/                          # AI diagnostic agent (Python)
 │   ├── main.py                     # Polling loop
-│   ├── agent.py                    # Claude + Telegram orchestration
+│   ├── agent.py                    # Claude + Telegram + Jira orchestration
 │   ├── loki.py                     # Loki HTTP client
 │   ├── telegram.py                 # Telegram Bot API client
+│   ├── jira.py                     # Jira REST API client
 │   ├── requirements.txt
 │   └── Dockerfile
 └── k8s/

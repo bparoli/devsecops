@@ -24,6 +24,10 @@ def main() -> None:
         telegram_token=must_env("TELEGRAM_TOKEN"),
         telegram_chat_id=must_env("TELEGRAM_CHAT_ID"),
         anthropic_api_key=must_env("ANTHROPIC_API_KEY"),
+        jira_url=os.environ.get("JIRA_URL"),
+        jira_email=os.environ.get("JIRA_EMAIL"),
+        jira_api_token=os.environ.get("JIRA_API_TOKEN"),
+        jira_project_key=os.environ.get("JIRA_PROJECT_KEY"),
     )
 
     logger.info(f"Diagnostic agent started — polling every {POLL_INTERVAL.seconds}s")
