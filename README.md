@@ -15,6 +15,9 @@ This service demonstrates a cloud-native Go application pattern that can be depl
 - Containerized with multi-stage Docker build
 - Production-ready Kubernetes manifests
 - Graceful shutdown handling
+- Prometheus metrics (`/metrics` endpoint)
+- Structured JSON logging (compatible with Loki)
+- Observability stack: Prometheus + Loki + Grafana (pre-configured)
 
 ## API Endpoints
 
@@ -260,6 +263,60 @@ These can be adjusted in `k8s/deployment.yaml` based on your workload requiremen
 - **Liveness Probe:** Checks `/health` every 10 seconds (restarts pod if failing)
 - **Readiness Probe:** Checks `/health` every 5 seconds (removes from service if failing)
 
+## Observability Stack (Prometheus + Loki + Grafana)
+
+The `k8s/monitoring/` directory contains all manifests for the observability stack, deployed in the `monitoring` namespace.
+
+### Deploy the monitoring stack
+
+```bash
+kubectl apply -f k8s/monitoring/
+```
+
+This creates:
+- **Prometheus** — scrapes `/metrics` from the arithmetic API every 15s
+- **Loki** — log aggregation backend (single-binary, local storage)
+- **Grafana** — pre-configured with Prometheus and Loki datasources and a built-in dashboard
+
+### Access Grafana
+
+```bash
+kubectl port-forward svc/grafana 3000:3000 -n monitoring
+```
+
+Open `http://localhost:3000` — login with `admin` / `admin`.
+
+The **Arithmetic API** dashboard is available immediately with:
+- Request rate per endpoint
+- Error rate (5xx)
+- P50 / P95 latency
+- Application log panel (Loki)
+
+### Access Prometheus
+
+```bash
+kubectl port-forward svc/prometheus 9090:9090 -n monitoring
+```
+
+Open `http://localhost:9090` — verify the `arithmetic-api` scrape target shows **UP** under Status → Targets.
+
+### Metrics endpoint
+
+The app exposes Prometheus metrics directly:
+
+```bash
+curl http://localhost:8080/metrics
+```
+
+Key metrics:
+- `http_requests_total{method, path, status_code}` — request counter
+- `http_request_duration_seconds{method, path}` — latency histogram
+
+### Notes
+
+- Loki and Prometheus use `emptyDir` storage — data is lost on pod restart. For persistent storage, add PersistentVolumeClaims.
+- Promtail runs as a DaemonSet (one pod per node) and ships all pod logs to Loki automatically. Logs appear in the Grafana **Application Logs** panel.
+
 ## Local Development
 
 ### Prerequisites
@@ -284,22 +341,38 @@ go test ./...
 
 ```
 .
-├── handlers/           # HTTP handlers for each endpoint
-│   ├── arithmetic.go   # Arithmetic operation handlers
-│   └── health.go       # Health check handler
-├── models/             # Request/response models
-│   ├── request.go      # OperationRequest struct
-│   └── response.go     # SuccessResponse and ErrorResponse structs
-├── operations/         # Business logic
-│   └── arithmetic.go   # Arithmetic operations (Add, Subtract, Multiply, Divide)
-├── k8s/                # Kubernetes manifests
-│   ├── deployment.yaml # Deployment configuration
-│   └── service.yaml    # Service configuration
-├── main.go             # Application entry point and routing
-├── Dockerfile          # Multi-stage Docker build
-├── .dockerignore       # Docker build exclusions
-├── go.mod              # Go module definition
-└── README.md           # This file
+├── handlers/               # HTTP handlers for each endpoint
+│   ├── arithmetic.go       # Arithmetic operation handlers
+│   └── health.go           # Health check handler
+├── middleware/             # HTTP middleware
+│   ├── metrics.go          # Prometheus metrics middleware
+│   ├── logging.go          # Structured JSON logging middleware
+│   └── recorder.go         # Shared response status recorder
+├── models/                 # Request/response models
+│   ├── request.go          # OperationRequest struct
+│   └── response.go         # SuccessResponse and ErrorResponse structs
+├── operations/             # Business logic
+│   └── arithmetic.go       # Arithmetic operations (Add, Subtract, Multiply, Divide)
+├── k8s/                    # Kubernetes manifests
+│   ├── deployment.yaml     # App Deployment
+│   ├── service.yaml        # App Service
+│   └── monitoring/         # Observability stack
+│       ├── namespace.yaml
+│       ├── prometheus-config.yaml
+│       ├── prometheus-deployment.yaml
+│       ├── prometheus-service.yaml
+│       ├── loki-config.yaml
+│       ├── loki-deployment.yaml
+│       ├── loki-service.yaml
+│       ├── grafana-datasources.yaml
+│       ├── grafana-dashboards-config.yaml
+│       ├── grafana-deployment.yaml
+│       └── grafana-service.yaml
+├── main.go                 # Application entry point and routing
+├── Dockerfile              # Multi-stage Docker build
+├── .dockerignore           # Docker build exclusions
+├── go.mod                  # Go module definition
+└── README.md               # This file
 ```
 
 ## Architecture

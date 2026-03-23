@@ -2,59 +2,63 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"go-arithmetic-api/handlers"
-	"log"
+	"go-arithmetic-api/middleware"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func main() {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
 
-	// Set up routes
-	http.HandleFunc("/api/add", handlers.AddHandler)
-	http.HandleFunc("/api/subtract", handlers.SubtractHandler)
-	http.HandleFunc("/api/multiply", handlers.MultiplyHandler)
-	http.HandleFunc("/api/divide", handlers.DivideHandler)
-	http.HandleFunc("/health", handlers.HealthHandler)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/add", handlers.AddHandler)
+	mux.HandleFunc("/api/subtract", handlers.SubtractHandler)
+	mux.HandleFunc("/api/multiply", handlers.MultiplyHandler)
+	mux.HandleFunc("/api/divide", handlers.DivideHandler)
+	mux.HandleFunc("/health", handlers.HealthHandler)
+	mux.Handle("/metrics", promhttp.Handler())
 
-	addr := fmt.Sprintf(":%s", port)
+	handler := middleware.Logging(logger, middleware.Metrics(mux))
+
+	addr := ":" + port
 	server := &http.Server{
 		Addr:    addr,
-		Handler: nil,
+		Handler: handler,
 	}
 
-	// Channel to listen for interrupt signals
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 
-	// Start server in a goroutine
 	go func() {
-		log.Printf("Server starting on port %s", port)
+		logger.Info("Server starting", "addr", addr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Server failed to start: %v", err)
+			logger.Error("Server failed to start", "error", err)
+			os.Exit(1)
 		}
 	}()
 
-	// Wait for interrupt signal
 	<-stop
-	log.Println("Shutting down server...")
+	logger.Info("Shutting down server...")
 
-	// Create a context with timeout for graceful shutdown
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Attempt graceful shutdown
 	if err := server.Shutdown(ctx); err != nil {
-		log.Fatalf("Server forced to shutdown: %v", err)
+		logger.Error("Server forced to shutdown", "error", err)
+		os.Exit(1)
 	}
 
-	log.Println("Server stopped gracefully")
+	logger.Info("Server stopped gracefully")
 }
