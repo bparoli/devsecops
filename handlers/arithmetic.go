@@ -59,6 +59,7 @@ func MultiplyHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // DivideHandler handles division requests
+// Validates that the divisor is not zero and returns a 400 Bad Request instead of crashing
 func DivideHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -68,6 +69,12 @@ func DivideHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.OperationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondWithError(w, "Invalid input: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Input validation: check for division by zero before calling the operation
+	if req.B == 0 {
+		respondWithError(w, "division by zero is not allowed", http.StatusBadRequest)
 		return
 	}
 
