@@ -4,9 +4,7 @@ import (
 	"encoding/json"
 	"go-arithmetic-api/models"
 	"go-arithmetic-api/operations"
-	"log/slog"
 	"net/http"
-	"os"
 )
 
 // AddHandler handles addition requests
@@ -71,11 +69,6 @@ func DivideHandler(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondWithError(w, "Invalid input: "+err.Error(), http.StatusBadRequest)
 		return
-	}
-
-	if req.B == 0 {
-		slog.Error("FATAL: division by zero - crashing pod", "a", req.A, "b", req.B)
-		os.Exit(1)
 	}
 
 	result, err := operations.Divide(req.A, req.B)
