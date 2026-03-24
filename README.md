@@ -4,7 +4,7 @@ A containerized microservice that provides basic arithmetic operations via a RES
 
 ## Overview
 
-This project demonstrates a cloud-native Go application with production-grade observability: metrics collected by Prometheus, logs shipped to Loki by Promtail, dashboards and alerts in Grafana, and an AI-powered diagnostic agent that detects failures and sends diagnoses via Telegram.
+This project demonstrates a cloud-native Go application with production-grade observability: metrics collected by Prometheus, logs shipped to Loki by Promtail, dashboards and alerts in Grafana, an AI-powered diagnostic agent that detects failures and sends diagnoses via Telegram, and an autonomous remediation agent that analyzes incidents, proposes code fixes, and deploys them automatically upon approval.
 
 ```mermaid
 flowchart TD
@@ -19,6 +19,7 @@ flowchart TD
             GRAFANA["Grafana\n(dashboards + alerts)"]
             PROMTAIL["Promtail DaemonSet\n(log shipper)"]
             AGENT["Diagnostic Agent\n(Python)"]
+            REMEDIATION["Remediation Agent\n(Python)"]
         end
     end
 
@@ -33,6 +34,11 @@ flowchart TD
     AGENT -- "diagnose\n(Claude Opus 4.6)" --> CLAUDE["Anthropic API\n(Claude Opus 4.6)"]
     AGENT -- "send diagnosis" --> TELEGRAM["Telegram Bot"]
     AGENT -- "search / create issue" --> JIRA["Jira"]
+    REMEDIATION -- "poll incidents" --> JIRA
+    REMEDIATION -- "analyze + fix\n(Claude Opus 4.6)" --> CLAUDE
+    REMEDIATION -- "approval request\n+ notification" --> TELEGRAM
+    REMEDIATION -- "push fix" --> GITHUB["GitHub Repo"]
+    REMEDIATION -- "rebuild + rollout" --> APP
 ```
 
 ### Features
@@ -46,6 +52,7 @@ flowchart TD
 - Grafana dashboards pre-configured (no manual setup)
 - Grafana alert fires when the pod restarts
 - AI diagnostic agent: polls Loki for errors, diagnoses with Claude Opus 4.6 (adaptive thinking), notifies via Telegram and creates Jira issues automatically
+- Autonomous remediation agent: polls Jira for open Incidents, uses Claude to analyze and propose code fixes, requests operator approval via Telegram, then pushes the fix to GitHub, rebuilds the Docker image and redeploys automatically
 
 ---
 
@@ -184,6 +191,51 @@ A 2-minute cooldown prevents duplicate alerts for the same incident.
 
 ---
 
+## Remediation Agent
+
+The remediation agent runs as a separate pod and closes the loop automatically when an incident is detected.
+
+### How it works
+
+```
+Jira Incident detected
+        ↓
+Claude analyzes source code + incident description
+        ↓
+    Fixable? ──No──→ Telegram notification (not auto-fixable)
+        ↓ Yes
+Telegram: "Proposed fix for SAM1-X: [...] Reply APPROVE or REJECT"
+        ↓ APPROVE
+Push fix to GitHub → docker build (no-cache) → kubectl rollout → Jira closed
+```
+
+### Additional secrets required
+
+| Key | Description |
+|-----|-------------|
+| `GITHUB_TOKEN` | GitHub PAT with `repo` scope |
+| `GITHUB_REPO` | Repository in `owner/repo` format |
+
+### Deploy
+
+```bash
+kubectl apply -f k8s/monitoring/remediation-rbac.yaml
+
+eval $(minikube docker-env)
+docker build -t remediation-agent:latest agent/
+kubectl apply -f k8s/monitoring/remediation-deployment.yaml
+```
+
+### Environment variables (deployment)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `TARGET_DEPLOYMENT` | `arithmetic-api` | Kubernetes deployment name to restart |
+| `TARGET_NAMESPACE` | `default` | Namespace of the target deployment |
+| `TARGET_IMAGE` | `go-arithmetic-api:latest` | Docker image tag to build and deploy |
+
+---
+
 ## Metrics
 
 Key Prometheus metrics exposed at `/metrics`:
@@ -246,12 +298,15 @@ go test ./...
 │   └── response.go                 # SuccessResponse / ErrorResponse
 ├── operations/
 │   └── arithmetic.go               # Business logic
-├── agent/                          # AI diagnostic agent (Python)
-│   ├── main.py                     # Polling loop
+├── agent/                          # AI agents (Python)
+│   ├── main.py                     # Diagnostic agent polling loop
 │   ├── agent.py                    # Claude + Telegram + Jira orchestration
 │   ├── loki.py                     # Loki HTTP client
 │   ├── telegram.py                 # Telegram Bot API client
 │   ├── jira.py                     # Jira REST API client
+│   ├── remediation_main.py         # Remediation agent polling loop
+│   ├── remediation_agent.py        # Incident analysis, fix proposal, deploy
+│   ├── github_client.py            # GitHub REST API client
 │   ├── requirements.txt
 │   └── Dockerfile
 └── k8s/
@@ -275,6 +330,8 @@ go test ./...
         ├── grafana-deployment.yaml
         ├── grafana-service.yaml
         ├── agent-deployment.yaml
+        ├── remediation-deployment.yaml
+        ├── remediation-rbac.yaml   # ServiceAccount + Role + RoleBinding
         └── agent-secret.yaml       # Gitignored — fill in manually
 ```
 
