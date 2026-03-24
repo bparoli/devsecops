@@ -334,7 +334,6 @@ go test ./...
         ├── remediation-deployment.yaml
         ├── remediation-rbac.yaml        # ServiceAccount + Role + RoleBinding
         ├── agent-secret.yaml.template   # Copy, fill in values, apply
-        └── agent-secret.yaml            # Gitignored — never commit
 ```
 
 ---
