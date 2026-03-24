@@ -164,7 +164,8 @@ The **Arithmetic API** dashboard loads automatically with:
 The agent requires a Kubernetes Secret before deployment:
 
 ```bash
-# Fill in your values in k8s/monitoring/agent-secret.yaml, then:
+cp k8s/monitoring/agent-secret.yaml.template k8s/monitoring/agent-secret.yaml
+# Fill in your values in agent-secret.yaml, then:
 kubectl apply -f k8s/monitoring/agent-secret.yaml
 ```
 
@@ -331,8 +332,9 @@ go test ./...
         ├── grafana-service.yaml
         ├── agent-deployment.yaml
         ├── remediation-deployment.yaml
-        ├── remediation-rbac.yaml   # ServiceAccount + Role + RoleBinding
-        └── agent-secret.yaml       # Gitignored — fill in manually
+        ├── remediation-rbac.yaml        # ServiceAccount + Role + RoleBinding
+        ├── agent-secret.yaml.template   # Copy, fill in values, apply
+        └── agent-secret.yaml            # Gitignored — never commit
 ```
 
 ---
